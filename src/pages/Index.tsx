@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Mic, MicOff } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Mic, MicOff, Send } from "lucide-react";
 import { VoiceVisualizer } from "@/components/VoiceVisualizer";
 import { ChatMessage } from "@/components/ChatMessage";
 import { useVoiceChat } from "@/lib/useVoiceChat";
@@ -16,6 +17,7 @@ interface Message {
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [textInput, setTextInput] = useState("");
   const speechSynthesisRef = useRef<SpeechSynthesis>(window.speechSynthesis);
 
   const handleSpeechStart = useCallback(() => {
@@ -26,12 +28,15 @@ const Index = () => {
 
   const handleSpeechEnd = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return;
+    await processMessage(transcript);
+  }, []);
 
-    setMessages((prev) => [...prev, { text: transcript, isBot: false }]);
+  const processMessage = async (message: string) => {
+    setMessages((prev) => [...prev, { text: message, isBot: false }]);
     setIsProcessing(true);
 
     try {
-      const response = await generateResponse(transcript);
+      const response = await generateResponse(message);
       setMessages((prev) => [...prev, { text: response, isBot: true }]);
 
       const utterance = new SpeechSynthesisUtterance(response);
@@ -41,12 +46,24 @@ const Index = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  };
+
+  const handleSendMessage = async () => {
+    if (!textInput.trim()) return;
+    await processMessage(textInput);
+    setTextInput("");
+  };
 
   const { isListening, startListening, stopListening } = useVoiceChat({
     onSpeechStart: handleSpeechStart,
     onSpeechEnd: handleSpeechEnd,
   });
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSendMessage();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background p-4 flex items-center justify-center">
@@ -62,6 +79,18 @@ const Index = () => {
         </div>
 
         <div className="flex flex-col items-center gap-4">
+          <div className="flex w-full gap-2">
+            <Input
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your message..."
+              className="flex-1"
+            />
+            <Button onClick={handleSendMessage} disabled={isProcessing}>
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
           <VoiceVisualizer isActive={isListening || isProcessing} />
           <Button
             size="lg"
