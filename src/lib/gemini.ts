@@ -30,3 +30,8 @@ export const generateResponse = async (prompt: string) => {
     throw new Error("Failed to generate response");
   }
 };
+
+export const getInitialGreeting = async () => {
+  const initialPrompt = "Start a therapy session with a warm, professional greeting as a therapist.";
+  return generateResponse(initialPrompt);
+};

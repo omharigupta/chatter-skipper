@@ -6,7 +6,7 @@ import { Mic, MicOff, RefreshCw } from "lucide-react";
 import { VoiceVisualizer } from "@/components/VoiceVisualizer";
 import { ChatMessage } from "@/components/ChatMessage";
 import { useVoiceChat } from "@/lib/useVoiceChat";
-import { generateResponse } from "@/lib/gemini";
+import { generateResponse, getInitialGreeting } from "@/lib/gemini";
 import { toast } from "sonner";
 import { saveMessage, fetchMessages, ChatMessage as ChatMessageType } from "@/lib/supabase-chat";
 import { useQuery } from "@tanstack/react-query";
@@ -67,11 +67,27 @@ const Index = () => {
       if (speechSynthesisRef.current.speaking) {
         speechSynthesisRef.current.cancel();
       }
+      
+      // Get initial greeting from Gemini
+      const greeting = await getInitialGreeting();
+      const botMessage = await saveMessage(greeting, true);
+      setMessages([botMessage]);
+      
+      const utterance = new SpeechSynthesisUtterance(greeting);
+      speechSynthesisRef.current.speak(utterance);
+      
       toast.success("Started a new therapy session");
     } catch (error) {
       toast.error("Failed to start new session");
     }
   };
+
+  // Start session with initial greeting when component mounts
+  useEffect(() => {
+    if (!initialMessages?.length) {
+      startNewSession();
+    }
+  }, [initialMessages]);
 
   useEffect(() => {
     if (textInput.trim()) {
