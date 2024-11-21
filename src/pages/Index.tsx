@@ -36,7 +36,9 @@ const Index = () => {
 
   const handleSpeechEnd = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return;
-    setTextInput(transcript); // Set the transcribed text to the input field
+    
+    // Update the input field with the transcribed text
+    setTextInput(transcript.trim());
     toast.info("Voice input captured! Click send or press Enter to send the message.");
   }, []);
 
