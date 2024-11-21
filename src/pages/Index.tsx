@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Mic, MicOff, Send } from "lucide-react";
+import { Mic, MicOff } from "lucide-react";
 import { VoiceVisualizer } from "@/components/VoiceVisualizer";
 import { ChatMessage } from "@/components/ChatMessage";
 import { useVoiceChat } from "@/lib/useVoiceChat";
@@ -16,6 +16,7 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [textInput, setTextInput] = useState("");
   const speechSynthesisRef = useRef<SpeechSynthesis>(window.speechSynthesis);
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
   const { data: initialMessages } = useQuery({
     queryKey: ['messages'],
@@ -36,10 +37,8 @@ const Index = () => {
 
   const handleSpeechEnd = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return;
-    
-    // Update the input field with the transcribed text
     setTextInput(transcript.trim());
-    toast.info("Voice input captured! Click send or press Enter to send the message.");
+    toast.info("Voice input captured! Message will be sent automatically after 5 seconds of pause.");
   }, []);
 
   const processMessage = async (message: string) => {
@@ -52,6 +51,7 @@ const Index = () => {
       const botMessage = await saveMessage(response, true);
       setMessages((prev) => [...prev, botMessage]);
 
+      // Speak the response
       const utterance = new SpeechSynthesisUtterance(response);
       speechSynthesisRef.current.speak(utterance);
     } catch (error) {
@@ -61,22 +61,33 @@ const Index = () => {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!textInput.trim()) return;
-    await processMessage(textInput);
-    setTextInput("");
-  };
+  // Auto-send after 5 seconds of pause
+  useEffect(() => {
+    if (textInput.trim()) {
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      // Set new timeout
+      timeoutRef.current = setTimeout(() => {
+        processMessage(textInput);
+        setTextInput("");
+      }, 5000);
+    }
+
+    // Cleanup timeout on unmount or when textInput changes
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [textInput]);
 
   const { isListening, startListening, stopListening } = useVoiceChat({
     onSpeechStart: handleSpeechStart,
     onSpeechEnd: handleSpeechEnd,
   });
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSendMessage();
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/10 p-4 flex items-center justify-center">
@@ -96,21 +107,13 @@ const Index = () => {
         </div>
 
         <div className="flex flex-col items-center gap-4 animate-fade-in">
-          <div className="flex w-full gap-2">
+          <div className="flex w-full">
             <Input
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
+              placeholder="Type your message... (Auto-sends after 5 seconds)"
               className="flex-1 transition-all duration-200 focus:ring-2 focus:ring-primary/50 hover:border-primary/50"
             />
-            <Button
-              onClick={handleSendMessage}
-              disabled={isProcessing}
-              className="transition-all duration-200 hover:scale-105 active:scale-95"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
           </div>
           <VoiceVisualizer isActive={isListening || isProcessing} />
           <Button
