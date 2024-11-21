@@ -38,7 +38,7 @@ const Index = () => {
   const handleSpeechEnd = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return;
     setTextInput(transcript.trim());
-    toast.info("Voice input captured! Message will be sent automatically after 5 seconds of pause.");
+    toast.info("Voice input captured! Message will be sent automatically after 2 seconds of pause.");
   }, []);
 
   const processMessage = async (message: string) => {
@@ -98,7 +98,7 @@ const Index = () => {
       timeoutRef.current = setTimeout(() => {
         processMessage(textInput);
         setTextInput("");
-      }, 5000);
+      }, 2000); // Changed from 5000 to 2000 milliseconds
     }
 
     return () => {
@@ -146,7 +146,7 @@ const Index = () => {
             <Input
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Type your message... (Auto-sends after 5 seconds)"
+              placeholder="Type your message... (Auto-sends after 2 seconds)"
               className="flex-1 transition-all duration-200 focus:ring-2 focus:ring-primary/50 hover:border-primary/50"
             />
           </div>
