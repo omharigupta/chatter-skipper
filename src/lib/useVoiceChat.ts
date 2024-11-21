@@ -1,46 +1,3 @@
-// Type declarations for the Web Speech API
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionResultList {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal: boolean;
-}
-
-interface SpeechRecognitionAlternative {
-  readonly transcript: string;
-  readonly confidence: number;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  onstart: (event: Event) => void;
-  onresult: (event: SpeechRecognitionEvent) => void;
-  onerror: (event: Event & { error: string }) => void;
-  onend: (event: Event) => void;
-  start(): void;
-  stop(): void;
-}
-
-declare const SpeechRecognition: {
-  prototype: SpeechRecognition;
-  new(): SpeechRecognition;
-};
-declare const webkitSpeechRecognition: {
-  prototype: SpeechRecognition;
-  new(): SpeechRecognition;
-};
-
 import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 
@@ -56,7 +13,7 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
   const startListening = useCallback(() => {
     try {
       if (!("webkitSpeechRecognition" in window)) {
-        toast.error("Speech recognition is not supported in this browser");
+        toast.error("Speech recognition is not supported in this browser. Please use Chrome.");
         return;
       }
 
@@ -65,10 +22,12 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
 
       recognition.continuous = true;
       recognition.interimResults = true;
+      recognition.lang = 'en-US'; // Set language explicitly
 
       recognition.onstart = () => {
         setIsListening(true);
         onSpeechStart();
+        toast.info("Listening... Speak now");
       };
 
       recognition.onresult = (event) => {
@@ -77,24 +36,42 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
           .join("");
 
         if (event.results[0].isFinal) {
-          onSpeechEnd(transcript);
+          if (transcript.trim()) {
+            onSpeechEnd(transcript);
+          }
         }
       };
 
       recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
-        toast.error("Error with speech recognition");
+        switch (event.error) {
+          case 'no-speech':
+            toast.error("No speech was detected. Please try again.");
+            break;
+          case 'audio-capture':
+            toast.error("No microphone was found. Ensure it's connected and permitted.");
+            break;
+          case 'not-allowed':
+            toast.error("Microphone permission was denied. Please allow microphone access.");
+            break;
+          default:
+            toast.error("Error with speech recognition. Please try again.");
+        }
         stopListening();
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        if (recognitionRef.current) {
+          toast.info("Stopped listening");
+        }
       };
 
       recognition.start();
     } catch (error) {
       console.error("Error starting speech recognition:", error);
       toast.error("Failed to start speech recognition");
+      setIsListening(false);
     }
   }, [onSpeechStart, onSpeechEnd]);
 
