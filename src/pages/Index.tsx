@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, RefreshCw } from "lucide-react";
 import { VoiceVisualizer } from "@/components/VoiceVisualizer";
 import { ChatMessage } from "@/components/ChatMessage";
 import { useVoiceChat } from "@/lib/useVoiceChat";
@@ -51,7 +51,6 @@ const Index = () => {
       const botMessage = await saveMessage(response, true);
       setMessages((prev) => [...prev, botMessage]);
 
-      // Speak the response
       const utterance = new SpeechSynthesisUtterance(response);
       speechSynthesisRef.current.speak(utterance);
     } catch (error) {
@@ -61,22 +60,31 @@ const Index = () => {
     }
   };
 
-  // Auto-send after 5 seconds of pause
+  const startNewSession = async () => {
+    try {
+      setMessages([]);
+      setTextInput("");
+      if (speechSynthesisRef.current.speaking) {
+        speechSynthesisRef.current.cancel();
+      }
+      toast.success("Started a new therapy session");
+    } catch (error) {
+      toast.error("Failed to start new session");
+    }
+  };
+
   useEffect(() => {
     if (textInput.trim()) {
-      // Clear any existing timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
 
-      // Set new timeout
       timeoutRef.current = setTimeout(() => {
         processMessage(textInput);
         setTextInput("");
       }, 5000);
     }
 
-    // Cleanup timeout on unmount or when textInput changes
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -92,6 +100,17 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/10 p-4 flex items-center justify-center">
       <Card className="w-full max-w-2xl h-[80vh] flex flex-col p-6 backdrop-blur-lg bg-opacity-50 shadow-lg transition-all duration-300 hover:shadow-xl border-opacity-50">
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={startNewSession}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            New Session
+          </Button>
+        </div>
         <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
           {messages.map((message, index) => (
             <div
