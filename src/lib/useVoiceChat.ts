@@ -1,3 +1,46 @@
+// Type declarations for the Web Speech API
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  readonly transcript: string;
+  readonly confidence: number;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (event: Event) => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: Event & { error: string }) => void;
+  onend: (event: Event) => void;
+  start(): void;
+  stop(): void;
+}
+
+declare const SpeechRecognition: {
+  prototype: SpeechRecognition;
+  new(): SpeechRecognition;
+};
+declare const webkitSpeechRecognition: {
+  prototype: SpeechRecognition;
+  new(): SpeechRecognition;
+};
+
 import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 
