@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Mic, MicOff, Play, Square } from "lucide-react";
+import { Mic, MicOff } from "lucide-react";
 import { VoiceVisualizer } from "@/components/VoiceVisualizer";
 import { ChatMessage } from "@/components/ChatMessage";
 import { useVoiceChat } from "@/lib/useVoiceChat";
@@ -61,18 +61,22 @@ const Index = () => {
     }
   };
 
+  // Auto-send after 5 seconds of pause
   useEffect(() => {
     if (textInput.trim()) {
+      // Clear any existing timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
 
+      // Set new timeout
       timeoutRef.current = setTimeout(() => {
         processMessage(textInput);
         setTextInput("");
       }, 5000);
     }
 
+    // Cleanup timeout on unmount or when textInput changes
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -112,26 +116,21 @@ const Index = () => {
             />
           </div>
           <VoiceVisualizer isActive={isListening || isProcessing} />
-          <div className="flex gap-4">
-            <Button
-              size="lg"
-              variant="default"
-              className="transition-all duration-300 hover:scale-105 active:scale-95"
-              onClick={startListening}
-              disabled={isListening}
-            >
-              <Play className="w-6 h-6" />
-            </Button>
-            <Button
-              size="lg"
-              variant="destructive"
-              className="transition-all duration-300 hover:scale-105 active:scale-95"
-              onClick={stopListening}
-              disabled={!isListening}
-            >
-              <Square className="w-6 h-6" />
-            </Button>
-          </div>
+          <Button
+            size="lg"
+            className={`transition-all duration-300 hover:scale-105 active:scale-95 ${
+              isListening
+                ? "bg-destructive hover:bg-destructive/90"
+                : "hover:bg-primary/90"
+            }`}
+            onClick={isListening ? stopListening : startListening}
+          >
+            {isListening ? (
+              <MicOff className="w-6 h-6 animate-pulse" />
+            ) : (
+              <Mic className="w-6 h-6" />
+            )}
+          </Button>
         </div>
       </Card>
     </div>
