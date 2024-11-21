@@ -51,6 +51,7 @@ interface UseVoiceChatProps {
 export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) => {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
   const startListening = useCallback(() => {
     try {
@@ -62,9 +63,11 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
       recognitionRef.current = new window.webkitSpeechRecognition();
       const recognition = recognitionRef.current;
 
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US'; // Set language explicitly
+      // Changed to false to prevent multiple recognitions
+      recognition.continuous = false;
+      // Changed to false to get only final results
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -75,12 +78,13 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
       recognition.onresult = (event) => {
         const transcript = Array.from(event.results)
           .map((result) => result[0].transcript)
-          .join("");
+          .join(" ")
+          .trim();
 
-        if (event.results[0].isFinal) {
-          if (transcript.trim()) {
-            onSpeechEnd(transcript);
-          }
+        if (transcript) {
+          onSpeechEnd(transcript);
+          // Automatically stop listening after getting a result
+          stopListening();
         }
       };
 
