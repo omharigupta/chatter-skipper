@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,17 +8,25 @@ import { ChatMessage } from "@/components/ChatMessage";
 import { useVoiceChat } from "@/lib/useVoiceChat";
 import { generateResponse } from "@/lib/gemini";
 import { toast } from "sonner";
-
-interface Message {
-  text: string;
-  isBot: boolean;
-}
+import { saveMessage, fetchMessages, ChatMessage as ChatMessageType } from "@/lib/supabase-chat";
+import { useQuery } from "@tanstack/react-query";
 
 const Index = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [textInput, setTextInput] = useState("");
   const speechSynthesisRef = useRef<SpeechSynthesis>(window.speechSynthesis);
+
+  const { data: initialMessages } = useQuery({
+    queryKey: ['messages'],
+    queryFn: fetchMessages,
+  });
+
+  useEffect(() => {
+    if (initialMessages) {
+      setMessages(initialMessages);
+    }
+  }, [initialMessages]);
 
   const handleSpeechStart = useCallback(() => {
     if (speechSynthesisRef.current.speaking) {
@@ -32,17 +40,19 @@ const Index = () => {
   }, []);
 
   const processMessage = async (message: string) => {
-    setMessages((prev) => [...prev, { text: message, isBot: false }]);
-    setIsProcessing(true);
-
     try {
+      const userMessage = await saveMessage(message, false);
+      setMessages((prev) => [...prev, userMessage]);
+      setIsProcessing(true);
+
       const response = await generateResponse(message);
-      setMessages((prev) => [...prev, { text: response, isBot: true }]);
+      const botMessage = await saveMessage(response, true);
+      setMessages((prev) => [...prev, botMessage]);
 
       const utterance = new SpeechSynthesisUtterance(response);
       speechSynthesisRef.current.speak(utterance);
     } catch (error) {
-      toast.error("Failed to generate response");
+      toast.error("Failed to process message");
     } finally {
       setIsProcessing(false);
     }
@@ -71,13 +81,13 @@ const Index = () => {
         <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
           {messages.map((message, index) => (
             <div
-              key={index}
+              key={message.id || index}
               className="animate-fade-in"
               style={{
                 animationDelay: `${index * 0.1}s`,
               }}
             >
-              <ChatMessage message={message.text} isBot={message.isBot} />
+              <ChatMessage message={message.message} isBot={message.is_bot} />
             </div>
           ))}
         </div>
