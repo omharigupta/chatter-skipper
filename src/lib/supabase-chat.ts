@@ -18,7 +18,10 @@ export const saveMessage = async (message: string, isBot: boolean) => {
     .insert([{ message, is_bot: isBot }])
     .select();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error saving message:', error);
+    throw error;
+  }
   return data[0];
 };
 
@@ -28,6 +31,9 @@ export const fetchMessages = async () => {
     .select('*')
     .order('created_at', { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching messages:', error);
+    throw error;
+  }
   return data as ChatMessage[];
 };
