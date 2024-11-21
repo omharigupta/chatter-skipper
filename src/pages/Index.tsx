@@ -66,39 +66,51 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 flex items-center justify-center">
-      <Card className="w-full max-w-2xl h-[80vh] flex flex-col p-6 backdrop-blur-lg bg-opacity-50">
-        <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/10 p-4 flex items-center justify-center">
+      <Card className="w-full max-w-2xl h-[80vh] flex flex-col p-6 backdrop-blur-lg bg-opacity-50 shadow-lg transition-all duration-300 hover:shadow-xl border-opacity-50">
+        <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
           {messages.map((message, index) => (
-            <ChatMessage
+            <div
               key={index}
-              message={message.text}
-              isBot={message.isBot}
-            />
+              className="animate-fade-in"
+              style={{
+                animationDelay: `${index * 0.1}s`,
+              }}
+            >
+              <ChatMessage message={message.text} isBot={message.isBot} />
+            </div>
           ))}
         </div>
 
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
           <div className="flex w-full gap-2">
             <Input
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your message..."
-              className="flex-1"
+              className="flex-1 transition-all duration-200 focus:ring-2 focus:ring-primary/50 hover:border-primary/50"
             />
-            <Button onClick={handleSendMessage} disabled={isProcessing}>
+            <Button
+              onClick={handleSendMessage}
+              disabled={isProcessing}
+              className="transition-all duration-200 hover:scale-105 active:scale-95"
+            >
               <Send className="w-4 h-4" />
             </Button>
           </div>
           <VoiceVisualizer isActive={isListening || isProcessing} />
           <Button
             size="lg"
-            className={isListening ? "bg-destructive" : ""}
+            className={`transition-all duration-300 hover:scale-105 active:scale-95 ${
+              isListening
+                ? "bg-destructive hover:bg-destructive/90"
+                : "hover:bg-primary/90"
+            }`}
             onClick={isListening ? stopListening : startListening}
           >
             {isListening ? (
-              <MicOff className="w-6 h-6" />
+              <MicOff className="w-6 h-6 animate-pulse" />
             ) : (
               <Mic className="w-6 h-6" />
             )}
