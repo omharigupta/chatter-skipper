@@ -18,6 +18,31 @@ const Index = () => {
   const speechSynthesisRef = useRef<SpeechSynthesis>(window.speechSynthesis);
   const timeoutRef = useRef<NodeJS.Timeout>();
 
+  // Initialize speech synthesis with female voice
+  useEffect(() => {
+    const initVoice = () => {
+      const voices = speechSynthesisRef.current.getVoices();
+      const femaleVoice = voices.find(
+        voice => voice.name.includes('female') || 
+                voice.name.includes('Female') || 
+                voice.name.includes('Samantha') ||
+                voice.name.includes('Victoria')
+      );
+      if (femaleVoice) {
+        console.log('Selected voice:', femaleVoice.name);
+      }
+      return femaleVoice;
+    };
+
+    // Wait for voices to be loaded
+    speechSynthesisRef.current.onvoiceschanged = () => {
+      initVoice();
+    };
+
+    // Initial voice check
+    initVoice();
+  }, []);
+
   const { data: initialMessages } = useQuery({
     queryKey: ['messages'],
     queryFn: fetchMessages,
@@ -52,6 +77,17 @@ const Index = () => {
       setMessages((prev) => [...prev, botMessage]);
 
       const utterance = new SpeechSynthesisUtterance(response);
+      // Set female voice for the utterance
+      const voices = speechSynthesisRef.current.getVoices();
+      const femaleVoice = voices.find(
+        voice => voice.name.includes('female') || 
+                voice.name.includes('Female') || 
+                voice.name.includes('Samantha') ||
+                voice.name.includes('Victoria')
+      );
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
+      }
       speechSynthesisRef.current.speak(utterance);
     } catch (error) {
       toast.error("Failed to process message");
@@ -68,12 +104,22 @@ const Index = () => {
         speechSynthesisRef.current.cancel();
       }
       
-      // Get initial greeting from Gemini
       const greeting = await getInitialGreeting();
       const botMessage = await saveMessage(greeting, true);
       setMessages([botMessage]);
       
       const utterance = new SpeechSynthesisUtterance(greeting);
+      // Set female voice for the greeting
+      const voices = speechSynthesisRef.current.getVoices();
+      const femaleVoice = voices.find(
+        voice => voice.name.includes('female') || 
+                voice.name.includes('Female') || 
+                voice.name.includes('Samantha') ||
+                voice.name.includes('Victoria')
+      );
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
+      }
       speechSynthesisRef.current.speak(utterance);
       
       toast.success("Started a new therapy session");
