@@ -10,38 +10,15 @@ import { generateResponse, getInitialGreeting } from "@/lib/gemini";
 import { toast } from "sonner";
 import { saveMessage, fetchMessages, ChatMessage as ChatMessageType } from "@/lib/supabase-chat";
 import { useQuery } from "@tanstack/react-query";
+import { useSpeechSynthesis } from "@/lib/useSpeechSynthesis";
 
 const Index = () => {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [textInput, setTextInput] = useState("");
-  const speechSynthesisRef = useRef<SpeechSynthesis>(window.speechSynthesis);
   const timeoutRef = useRef<NodeJS.Timeout>();
 
-  // Initialize speech synthesis with female voice
-  useEffect(() => {
-    const initVoice = () => {
-      const voices = speechSynthesisRef.current.getVoices();
-      const femaleVoice = voices.find(
-        voice => voice.name.includes('female') || 
-                voice.name.includes('Female') || 
-                voice.name.includes('Samantha') ||
-                voice.name.includes('Victoria')
-      );
-      if (femaleVoice) {
-        console.log('Selected voice:', femaleVoice.name);
-      }
-      return femaleVoice;
-    };
-
-    // Wait for voices to be loaded
-    speechSynthesisRef.current.onvoiceschanged = () => {
-      initVoice();
-    };
-
-    // Initial voice check
-    initVoice();
-  }, []);
+  const { speak, cancel } = useSpeechSynthesis();
 
   const { data: initialMessages } = useQuery({
     queryKey: ['messages'],
@@ -55,10 +32,8 @@ const Index = () => {
   }, [initialMessages]);
 
   const handleSpeechStart = useCallback(() => {
-    if (speechSynthesisRef.current.speaking) {
-      speechSynthesisRef.current.cancel();
-    }
-  }, []);
+    cancel();
+  }, [cancel]);
 
   const handleSpeechEnd = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return;
@@ -76,19 +51,7 @@ const Index = () => {
       const botMessage = await saveMessage(response, true);
       setMessages((prev) => [...prev, botMessage]);
 
-      const utterance = new SpeechSynthesisUtterance(response);
-      // Set female voice for the utterance
-      const voices = speechSynthesisRef.current.getVoices();
-      const femaleVoice = voices.find(
-        voice => voice.name.includes('female') || 
-                voice.name.includes('Female') || 
-                voice.name.includes('Samantha') ||
-                voice.name.includes('Victoria')
-      );
-      if (femaleVoice) {
-        utterance.voice = femaleVoice;
-      }
-      speechSynthesisRef.current.speak(utterance);
+      speak(response);
     } catch (error) {
       toast.error("Failed to process message");
     } finally {
@@ -100,35 +63,19 @@ const Index = () => {
     try {
       setMessages([]);
       setTextInput("");
-      if (speechSynthesisRef.current.speaking) {
-        speechSynthesisRef.current.cancel();
-      }
+      cancel();
       
       const greeting = await getInitialGreeting();
       const botMessage = await saveMessage(greeting, true);
       setMessages([botMessage]);
       
-      const utterance = new SpeechSynthesisUtterance(greeting);
-      // Set female voice for the greeting
-      const voices = speechSynthesisRef.current.getVoices();
-      const femaleVoice = voices.find(
-        voice => voice.name.includes('female') || 
-                voice.name.includes('Female') || 
-                voice.name.includes('Samantha') ||
-                voice.name.includes('Victoria')
-      );
-      if (femaleVoice) {
-        utterance.voice = femaleVoice;
-      }
-      speechSynthesisRef.current.speak(utterance);
-      
+      speak(greeting);
       toast.success("Started a new therapy session");
     } catch (error) {
       toast.error("Failed to start new session");
     }
   };
 
-  // Start session with initial greeting when component mounts
   useEffect(() => {
     if (!initialMessages?.length) {
       startNewSession();
@@ -144,7 +91,7 @@ const Index = () => {
       timeoutRef.current = setTimeout(() => {
         processMessage(textInput);
         setTextInput("");
-      }, 2000); // Changed from 5000 to 2000 milliseconds
+      }, 2000);
     }
 
     return () => {
