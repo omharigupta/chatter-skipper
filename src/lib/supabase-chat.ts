@@ -38,9 +38,9 @@ export const saveMessage = async (message: string, isBot: boolean) => {
       .insert([{ 
         message, 
         is_bot: isBot,
-        embedding
+        embedding: embedding || undefined
       }])
-      .select();
+      .select('id, created_at, message, is_bot');
 
     if (error) throw error;
     return data[0];
@@ -63,7 +63,19 @@ export const fetchSimilarMessages = async (message: string, limit = 5) => {
         match_count: limit
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error in similarity search, falling back to recent messages:', error);
+      // Fallback to recent messages if similarity search fails
+      const { data: recentData, error: recentError } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (recentError) throw recentError;
+      return recentData as ChatMessage[];
+    }
+
     return data as ChatMessage[];
   } catch (error) {
     console.error('Error fetching similar messages:', error);
