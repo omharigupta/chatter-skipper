@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { fetchSimilarMessages } from "./supabase-chat";
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
@@ -6,10 +7,19 @@ export const generateResponse = async (prompt: string) => {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     
-    // Enhanced therapist context with more varied responses and minimal verbal acknowledgments
+    // Fetch similar past messages for context
+    const similarMessages = await fetchSimilarMessages(prompt);
+    const contextHistory = similarMessages
+      .map(msg => `${msg.is_bot ? "Therapist" : "Patient"}: ${msg.message}`)
+      .join("\n");
+
+    // Enhanced therapist context with RAG
     const therapistContext = `
       You are a professional psychologist/therapist with years of experience. 
       Your approach is empathetic, patient, and non-judgmental, similar to Carl Rogers' person-centered therapy style.
+      
+      Previous relevant conversation context:
+      ${contextHistory}
       
       Guidelines for varied responses:
       - Use a wide variety of empathetic phrases like:
@@ -28,8 +38,9 @@ export const generateResponse = async (prompt: string) => {
       - Keep responses concise but meaningful
       - Maintain a warm, professional tone
       - Focus on deeper understanding rather than simple acknowledgments
+      - Reference relevant past conversations when appropriate to show continuity of care
       
-      Respond to this patient's message with the above guidelines: ${prompt}
+      Based on the conversation history and current context, respond to this patient's message: ${prompt}
     `;
 
     const result = await model.generateContent(therapistContext);
