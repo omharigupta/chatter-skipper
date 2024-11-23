@@ -14,13 +14,15 @@ export interface ChatMessage {
   embedding?: number[];
 }
 
-// Function to create embeddings using Google's Generative AI
+// Function to create embeddings using a simple token-based approach
 const createEmbedding = async (text: string) => {
   try {
-    // Use a simple averaging of word vectors for demonstration
-    // In a production environment, you would use a proper embedding model
     const tokens = encode(text);
-    const embedding = new Array(512).fill(0); // 512-dimensional embedding
+    // Create a simple embedding by distributing token values across 512 dimensions
+    const embedding = new Array(512).fill(0);
+    tokens.forEach((token, index) => {
+      embedding[index % 512] = token / 100; // Normalize values
+    });
     return embedding;
   } catch (error) {
     console.error('Error creating embedding:', error);
@@ -42,7 +44,19 @@ export const saveMessage = async (message: string, isBot: boolean) => {
       }])
       .select('id, created_at, message, is_bot');
 
-    if (error) throw error;
+    if (error) {
+      // If error is related to embedding column, try without it
+      if (error.message.includes('embedding')) {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('messages')
+          .insert([{ message, is_bot: isBot }])
+          .select('id, created_at, message, is_bot');
+        
+        if (fallbackError) throw fallbackError;
+        return fallbackData[0];
+      }
+      throw error;
+    }
     return data[0];
   } catch (error) {
     console.error('Error saving message:', error);
@@ -56,27 +70,28 @@ export const fetchSimilarMessages = async (message: string, limit = 5) => {
     const embedding = await createEmbedding(message);
     if (!embedding) return [];
 
-    const { data, error } = await supabase
-      .rpc('match_messages', {
-        query_embedding: embedding,
-        match_threshold: 0.7,
-        match_count: limit
-      });
+    try {
+      const { data, error } = await supabase
+        .rpc('match_messages', {
+          query_embedding: embedding,
+          match_threshold: 0.7,
+          match_count: limit
+        });
 
-    if (error) {
-      console.error('Error in similarity search, falling back to recent messages:', error);
-      // Fallback to recent messages if similarity search fails
+      if (error) throw error;
+      return data as ChatMessage[];
+    } catch (error) {
+      console.error('Vector search failed, falling back to recent messages:', error);
+      // Fallback to recent messages if vector search fails
       const { data: recentData, error: recentError } = await supabase
         .from('messages')
-        .select('*')
+        .select('id, created_at, message, is_bot')
         .order('created_at', { ascending: false })
         .limit(limit);
 
       if (recentError) throw recentError;
       return recentData as ChatMessage[];
     }
-
-    return data as ChatMessage[];
   } catch (error) {
     console.error('Error fetching similar messages:', error);
     return [];
@@ -86,7 +101,7 @@ export const fetchSimilarMessages = async (message: string, limit = 5) => {
 export const fetchMessages = async () => {
   const { data, error } = await supabase
     .from('messages')
-    .select('*')
+    .select('id, created_at, message, is_bot')
     .order('created_at', { ascending: true });
 
   if (error) {
