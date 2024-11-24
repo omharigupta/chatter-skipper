@@ -1,36 +1,16 @@
-// Type declarations for the Web Speech API
+// Type declarations for Web Speech API
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
 }
 
-interface SpeechRecognitionResultList {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
 interface SpeechRecognitionResult {
-  readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
   isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternative;
 }
 
 interface SpeechRecognitionAlternative {
-  readonly transcript: string;
-  readonly confidence: number;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onstart: (event: Event) => void;
-  onresult: (event: SpeechRecognitionEvent) => void;
-  onerror: (event: Event & { error: string }) => void;
-  onend: (event: Event) => void;
-  start(): void;
-  stop(): void;
+  transcript: string;
+  confidence: number;
 }
 
 declare global {
@@ -51,23 +31,35 @@ interface UseVoiceChatProps {
 export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) => {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+
+  const initializeRecognition = useCallback(() => {
+    if (!("webkitSpeechRecognition" in window)) {
+      toast.error("Speech recognition not supported. Please use Chrome.");
+      return null;
+    }
+
+    const recognition = new window.webkitSpeechRecognition();
+    recognition.continuous = true; // Enable continuous recognition
+    recognition.interimResults = true; // Get interim results for better accuracy
+    recognition.maxAlternatives = 3; // Get multiple alternatives for better accuracy
+    recognition.lang = 'hi-IN,en-US'; // Support both Hindi and English
+
+    return recognition;
+  }, []);
 
   const startListening = useCallback(() => {
     try {
-      if (!("webkitSpeechRecognition" in window)) {
-        toast.error("Speech recognition is not supported in this browser. Please use Chrome.");
-        return;
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
       }
 
-      recognitionRef.current = new window.webkitSpeechRecognition();
-      const recognition = recognitionRef.current;
+      const recognition = initializeRecognition();
+      if (!recognition) return;
 
-      // Changed to false to prevent multiple recognitions
-      recognition.continuous = false;
-      // Changed to false to get only final results
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
+      recognitionRef.current = recognition;
+
+      let finalTranscript = '';
+      let lastResultTime = Date.now();
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -76,33 +68,36 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
       };
 
       recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-          .map((result) => result[0].transcript)
-          .join(" ")
-          .trim();
+        let interimTranscript = '';
+        lastResultTime = Date.now();
 
-        if (transcript) {
-          onSpeechEnd(transcript);
-          // Automatically stop listening after getting a result
-          stopListening();
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript;
+          } else {
+            interimTranscript += result[0].transcript;
+          }
+        }
+
+        // If we have a final transcript or it's been more than 3 seconds since the last result
+        if (finalTranscript || Date.now() - lastResultTime > 3000) {
+          const transcript = finalTranscript || interimTranscript;
+          if (transcript.trim()) {
+            onSpeechEnd(transcript.trim());
+            stopListening();
+          }
         }
       };
 
       recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
-        switch (event.error) {
-          case 'no-speech':
-            toast.error("No speech was detected. Please try again.");
-            break;
-          case 'audio-capture':
-            toast.error("No microphone was found. Ensure it's connected and permitted.");
-            break;
-          case 'not-allowed':
-            toast.error("Microphone permission was denied. Please allow microphone access.");
-            break;
-          default:
-            toast.error("Error with speech recognition. Please try again.");
-        }
+        const errorMessages = {
+          'no-speech': "No speech detected. Please try again.",
+          'audio-capture': "No microphone found. Ensure it's connected and permitted.",
+          'not-allowed': "Microphone permission denied. Please allow access.",
+        };
+        toast.error(errorMessages[event.error as keyof typeof errorMessages] || "Recognition error. Please try again.");
         stopListening();
       };
 
@@ -128,9 +123,5 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
     }
   }, []);
 
-  return {
-    isListening,
-    startListening,
-    stopListening,
-  };
+  return { isListening, startListening, stopListening };
 };
