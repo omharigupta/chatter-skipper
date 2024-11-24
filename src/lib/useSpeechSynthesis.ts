@@ -7,35 +7,34 @@ export const useSpeechSynthesis = () => {
 
   const initVoice = useCallback(() => {
     const voices = synthRef.current.getVoices();
-    // Prioritize natural sounding voices
-    const preferredVoices = voices.filter(voice => 
-      voice.localService && // Local voices often sound better
-      (voice.name.includes('Natural') || // Microsoft's natural voices
-       voice.name.includes('Premium') || // Premium voices
-       voice.name.includes('Enhanced') || // Enhanced quality voices
-       voice.name.includes('Neural')) // Neural network based voices
+    
+    // Prioritize Hindi voices first
+    const hindiVoice = voices.find(voice => 
+      voice.lang.includes('hi-IN') || // Hindi (India)
+      voice.name.toLowerCase().includes('hindi')
     );
 
-    // Fallback to any female voice if no natural voices found
-    const femaleVoice = preferredVoices.length > 0 
-      ? preferredVoices[0] 
-      : voices.find(voice => 
-          voice.name.includes('female') || 
-          voice.name.includes('Female') || 
-          voice.name.includes('Samantha') ||
-          voice.name.includes('Victoria')
-        );
+    // Fallback to natural sounding voices if no Hindi voice is available
+    const preferredVoices = voices.filter(voice => 
+      voice.localService && 
+      (voice.name.includes('Natural') ||
+       voice.name.includes('Premium') ||
+       voice.name.includes('Enhanced') ||
+       voice.name.includes('Neural'))
+    );
 
-    if (femaleVoice) {
-      voiceRef.current = femaleVoice;
-      console.log('Selected voice:', femaleVoice.name);
+    if (hindiVoice) {
+      voiceRef.current = hindiVoice;
+      console.log('Selected Hindi voice:', hindiVoice.name);
+    } else if (preferredVoices.length > 0) {
+      voiceRef.current = preferredVoices[0];
+      console.log('Selected fallback voice:', preferredVoices[0].name);
     } else {
       console.warn('No suitable voice found, using default');
     }
   }, []);
 
   useEffect(() => {
-    // Initialize voice when voices are loaded
     if (synthRef.current.getVoices().length > 0) {
       initVoice();
     }
@@ -55,18 +54,17 @@ export const useSpeechSynthesis = () => {
 
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Set voice if available
       if (voiceRef.current) {
         utterance.voice = voiceRef.current;
       }
 
-      // Optimize speech parameters for more natural sound
-      utterance.pitch = 1.0; // Natural pitch
-      utterance.rate = 0.9; // Slightly slower for clarity
-      utterance.volume = 1.0; // Full volume
+      // Optimize speech parameters for Hindi pronunciation
+      utterance.pitch = 1.0;
+      utterance.rate = 0.85; // Slightly slower for clearer pronunciation
+      utterance.volume = 1.0;
       
-      // Add slight pauses at punctuation for more natural rhythm
-      text = text.replace(/([.,!?])/g, '$1 ');
+      // Add pauses for better word separation in Hindi
+      text = text.replace(/([।,!?])/g, '$1 ');
       
       utterance.onend = () => {
         console.log('Speech finished');
