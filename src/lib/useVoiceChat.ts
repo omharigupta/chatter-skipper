@@ -17,6 +17,7 @@ interface SpeechRecognitionErrorEvent extends Event {
 }
 
 interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
   results: SpeechRecognitionResultList;
 }
 
@@ -28,6 +29,12 @@ interface SpeechRecognitionResult {
 interface SpeechRecognitionAlternative {
   transcript: string;
   confidence: number;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
 }
 
 declare global {
