@@ -1,4 +1,3 @@
-// Type declarations for Web Speech API
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -63,10 +62,10 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
     }
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = false; // Changed to false for faster processing
     recognition.interimResults = true;
-    recognition.maxAlternatives = 3;
-    recognition.lang = 'hi-IN,en-US';
+    recognition.maxAlternatives = 1; // Reduced alternatives for faster processing
+    recognition.lang = 'en-US'; // Focused on English for better accuracy
 
     return recognition;
   }, []);
@@ -83,7 +82,6 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
       recognitionRef.current = recognition;
 
       let finalTranscript = '';
-      let lastResultTime = Date.now();
       let silenceTimer: NodeJS.Timeout | null = null;
 
       recognition.onstart = () => {
@@ -94,9 +92,7 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
 
       recognition.onresult = (event) => {
         let interimTranscript = '';
-        lastResultTime = Date.now();
 
-        // Clear any existing silence timer
         if (silenceTimer) {
           clearTimeout(silenceTimer);
         }
@@ -110,14 +106,13 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
           }
         }
 
-        // Set a new silence timer
         silenceTimer = setTimeout(() => {
           const transcript = finalTranscript || interimTranscript;
           if (transcript.trim()) {
             onSpeechEnd(transcript.trim());
             stopListening();
           }
-        }, 3000); // 3 seconds of silence
+        }, 1000); // Reduced to 1 second for faster response
       };
 
       recognition.onerror = (event) => {
