@@ -63,10 +63,10 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
     }
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.continuous = true; // Enable continuous recognition
-    recognition.interimResults = true; // Get interim results for better accuracy
-    recognition.maxAlternatives = 3; // Get multiple alternatives for better accuracy
-    recognition.lang = 'hi-IN,en-US'; // Support both Hindi and English
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 3;
+    recognition.lang = 'hi-IN,en-US';
 
     return recognition;
   }, []);
@@ -84,6 +84,7 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
 
       let finalTranscript = '';
       let lastResultTime = Date.now();
+      let silenceTimer: NodeJS.Timeout | null = null;
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -95,7 +96,12 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
         let interimTranscript = '';
         lastResultTime = Date.now();
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        // Clear any existing silence timer
+        if (silenceTimer) {
+          clearTimeout(silenceTimer);
+        }
+
+        for (let i = 0; i < event.results.length; ++i) {
           const result = event.results[i];
           if (result.isFinal) {
             finalTranscript += result[0].transcript;
@@ -104,14 +110,14 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
           }
         }
 
-        // If we have a final transcript or it's been more than 3 seconds since the last result
-        if (finalTranscript || Date.now() - lastResultTime > 3000) {
+        // Set a new silence timer
+        silenceTimer = setTimeout(() => {
           const transcript = finalTranscript || interimTranscript;
           if (transcript.trim()) {
             onSpeechEnd(transcript.trim());
             stopListening();
           }
-        }
+        }, 3000); // 3 seconds of silence
       };
 
       recognition.onerror = (event) => {
