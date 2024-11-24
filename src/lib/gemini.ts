@@ -7,7 +7,7 @@ import { fetchSimilarMessages } from "./supabase-chat";
 const model = new ChatGoogleGenerativeAI({
   apiKey: import.meta.env.VITE_GEMINI_API_KEY,
   modelName: "gemini-pro",
-  maxOutputTokens: 2048,
+  maxOutputTokens: 1024, // Reduced from 2048 for faster responses
 });
 
 const createPromptTemplate = (contextHistory: string) => {

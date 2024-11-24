@@ -52,30 +52,38 @@ export const useSpeechSynthesis = () => {
         synthRef.current.cancel();
       }
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      
-      if (voiceRef.current) {
-        utterance.voice = voiceRef.current;
-      }
+      // Split text into smaller chunks at natural break points
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      let currentIndex = 0;
 
-      // Optimize speech parameters for Hindi pronunciation
-      utterance.pitch = 1.0;
-      utterance.rate = 0.85; // Slightly slower for clearer pronunciation
-      utterance.volume = 1.0;
-      
-      // Add pauses for better word separation in Hindi
-      text = text.replace(/([।,!?])/g, '$1 ');
-      
-      utterance.onend = () => {
-        console.log('Speech finished');
+      const speakNextChunk = () => {
+        if (currentIndex >= sentences.length) return;
+
+        const utterance = new SpeechSynthesisUtterance(sentences[currentIndex]);
+        
+        if (voiceRef.current) {
+          utterance.voice = voiceRef.current;
+        }
+
+        // Optimize speech parameters
+        utterance.pitch = 1.0;
+        utterance.rate = 0.9; // Slightly slower for better clarity
+        utterance.volume = 1.0;
+        
+        utterance.onend = () => {
+          currentIndex++;
+          speakNextChunk();
+        };
+
+        utterance.onerror = (event) => {
+          console.error('Speech synthesis error:', event);
+          toast.error('Error during speech synthesis');
+        };
+
+        synthRef.current.speak(utterance);
       };
 
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        toast.error('Error during speech synthesis');
-      };
-
-      synthRef.current.speak(utterance);
+      speakNextChunk();
     } catch (error) {
       console.error('Speech synthesis error:', error);
       toast.error('Failed to synthesize speech');
