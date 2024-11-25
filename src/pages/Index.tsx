@@ -38,7 +38,7 @@ const Index = () => {
   const handleSpeechEnd = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return;
     setTextInput(transcript.trim());
-    toast.info("Voice input captured! Message will be sent automatically after 2 seconds of pause.");
+    toast.info("Voice input captured! Message will be sent automatically after 5 seconds of pause.");
   }, []);
 
   const processMessage = async (message: string) => {
@@ -91,14 +91,14 @@ const Index = () => {
       timeoutRef.current = setTimeout(() => {
         processMessage(textInput);
         setTextInput("");
-      }, 2000);
-    }
+      }, 5000); // Changed from 2000 to 5000 milliseconds
 
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
+    }
   }, [textInput]);
 
   const { isListening, startListening, stopListening } = useVoiceChat({
@@ -139,7 +139,7 @@ const Index = () => {
             <Input
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Type your message... (Auto-sends after 2 seconds)"
+              placeholder="Type your message... (Auto-sends after 5 seconds)"
               className="flex-1 transition-all duration-200 focus:ring-2 focus:ring-primary/50 hover:border-primary/50"
             />
           </div>
