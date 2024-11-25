@@ -62,10 +62,26 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
     }
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.continuous = false; // Changed to false for faster processing
+    
+    // Enhanced accuracy settings
+    recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 1; // Reduced alternatives for faster processing
-    recognition.lang = 'en-US'; // Focused on English for better accuracy
+    recognition.maxAlternatives = 3; // Get multiple alternatives for better accuracy
+    recognition.lang = 'en-US';
+
+    // Add noise suppression if supported by the browser
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      }).catch(error => {
+        console.error('Error accessing microphone:', error);
+        toast.error('Error accessing microphone. Please check permissions.');
+      });
+    }
 
     return recognition;
   }, []);
@@ -82,12 +98,13 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
       recognitionRef.current = recognition;
 
       let finalTranscript = '';
+      let confidenceThreshold = 0.8; // Only accept results with high confidence
       let silenceTimer: NodeJS.Timeout | null = null;
 
       recognition.onstart = () => {
         setIsListening(true);
         onSpeechStart();
-        toast.info("Listening... Speak now");
+        toast.info("Listening... Speak clearly and close to the microphone");
       };
 
       recognition.onresult = (event) => {
@@ -99,28 +116,34 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
 
         for (let i = 0; i < event.results.length; ++i) {
           const result = event.results[i];
-          if (result.isFinal) {
-            finalTranscript += result[0].transcript;
-          } else {
-            interimTranscript += result[0].transcript;
+          // Only use results with high confidence
+          if (result[0].confidence >= confidenceThreshold) {
+            if (result.isFinal) {
+              finalTranscript += result[0].transcript;
+            } else {
+              interimTranscript += result[0].transcript;
+            }
           }
         }
 
+        // Use a longer silence detection period for more accurate results
         silenceTimer = setTimeout(() => {
           const transcript = finalTranscript || interimTranscript;
           if (transcript.trim()) {
             onSpeechEnd(transcript.trim());
             stopListening();
           }
-        }, 1000); // Reduced to 1 second for faster response
+        }, 1500); // Increased to 1.5 seconds for better phrase completion
       };
 
       recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
         const errorMessages = {
-          'no-speech': "No speech detected. Please try again.",
+          'no-speech': "No speech detected. Please try again and speak clearly.",
           'audio-capture': "No microphone found. Ensure it's connected and permitted.",
           'not-allowed': "Microphone permission denied. Please allow access.",
+          'network': "Network error. Please check your connection.",
+          'aborted': "Speech recognition was aborted. Please try again.",
         };
         toast.error(errorMessages[event.error as keyof typeof errorMessages] || "Recognition error. Please try again.");
         stopListening();
