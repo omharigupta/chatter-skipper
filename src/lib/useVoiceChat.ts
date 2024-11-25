@@ -63,19 +63,22 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
 
     const recognition = new window.webkitSpeechRecognition();
     
-    // Enhanced accuracy settings
+    // Enhanced accuracy settings with optimal configuration
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 3; // Get multiple alternatives for better accuracy
+    recognition.maxAlternatives = 5; // Increased alternatives for better accuracy
     recognition.lang = 'en-US';
 
-    // Add noise suppression if supported by the browser
+    // Advanced audio settings for better quality
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          channelCount: 1, // Mono audio for better speech recognition
+          sampleRate: 48000, // Higher sample rate for better quality
+          sampleSize: 16 // Standard sample size for voice
         }
       }).catch(error => {
         console.error('Error accessing microphone:', error);
@@ -98,8 +101,10 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
       recognitionRef.current = recognition;
 
       let finalTranscript = '';
-      let confidenceThreshold = 0.8; // Only accept results with high confidence
+      let confidenceThreshold = 0.75; // Slightly lowered threshold for better recognition
+      let consecutiveHighConfidence = 0;
       let silenceTimer: NodeJS.Timeout | null = null;
+      let previousTranscript = '';
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -116,24 +121,43 @@ export const useVoiceChat = ({ onSpeechStart, onSpeechEnd }: UseVoiceChatProps) 
 
         for (let i = 0; i < event.results.length; ++i) {
           const result = event.results[i];
-          // Only use results with high confidence
+          
+          // Enhanced confidence tracking
           if (result[0].confidence >= confidenceThreshold) {
+            consecutiveHighConfidence++;
+            
+            // If we get multiple high confidence results, lower the threshold slightly
+            if (consecutiveHighConfidence > 3) {
+              confidenceThreshold = Math.max(0.65, confidenceThreshold - 0.05);
+            }
+
             if (result.isFinal) {
-              finalTranscript += result[0].transcript;
+              const transcript = result[0].transcript.trim();
+              // Check if the new transcript is significantly different
+              if (!previousTranscript || 
+                  (transcript.length > previousTranscript.length * 0.7)) {
+                finalTranscript += transcript + ' ';
+                previousTranscript = transcript;
+              }
             } else {
               interimTranscript += result[0].transcript;
             }
+          } else {
+            consecutiveHighConfidence = 0;
+            confidenceThreshold = Math.min(0.75, confidenceThreshold + 0.02);
           }
         }
 
-        // Use a longer silence detection period for more accurate results
+        // Adaptive silence detection based on speech pattern
+        const silenceDelay = finalTranscript.length > 50 ? 2000 : 1500;
+        
         silenceTimer = setTimeout(() => {
-          const transcript = finalTranscript || interimTranscript;
-          if (transcript.trim()) {
-            onSpeechEnd(transcript.trim());
+          const transcript = (finalTranscript || interimTranscript).trim();
+          if (transcript && transcript.length >= 2) { // Minimum length check
+            onSpeechEnd(transcript);
             stopListening();
           }
-        }, 1500); // Increased to 1.5 seconds for better phrase completion
+        }, silenceDelay);
       };
 
       recognition.onerror = (event) => {
