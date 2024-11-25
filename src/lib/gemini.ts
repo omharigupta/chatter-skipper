@@ -3,11 +3,16 @@ import { StringOutputParser } from "@langchain/core/output_parsers";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { fetchSimilarMessages } from "./supabase-chat";
+import { toast } from "sonner";
 
+// Initialize the model with proper configuration
 const model = new ChatGoogleGenerativeAI({
   apiKey: import.meta.env.VITE_GEMINI_API_KEY,
   modelName: "gemini-pro",
-  maxOutputTokens: 1024, // Reduced from 2048 for faster responses
+  maxOutputTokens: 1024,
+  temperature: 0.7,
+  topP: 0.8,
+  topK: 40,
 });
 
 const createPromptTemplate = (contextHistory: string) => {
@@ -57,10 +62,15 @@ export const generateResponse = async (prompt: string) => {
       contextHistory: contextHistory
     });
 
+    if (!response) {
+      throw new Error("No response generated");
+    }
+
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating response:", error);
-    throw new Error("Failed to generate response");
+    toast.error("Failed to generate response. Please try again.");
+    throw new Error(error.message || "Failed to generate response");
   }
 };
 
